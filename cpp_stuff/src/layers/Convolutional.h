@@ -15,10 +15,10 @@ class ConvolutionalLayer : public Layer {
           biasData(biasParams) {}
 
     // Getters
-    const LayerParams& getWeightParams() const { return weightParam; }
-    const LayerParams& getBiasParams() const { return biasParam; }
-    const LayerData& getWeightData() const { return weightData; }
-    const LayerData& getBiasData() const { return biasData; }
+    inline const LayerParams& getWeightParams() const { return weightParam; }
+    inline const LayerParams& getBiasParams() const { return biasParam; }
+    inline const LayerData& getWeightData() const { return weightData; }
+    inline const LayerData& getBiasData() const { return biasData; }
 
     // Allocate all resources needed for the layer & Load all of the required data for the layer
     virtual void allocLayer() override {

@@ -122,6 +122,19 @@ namespace ML
             return ((T *)data.get())[flat_index];
         }
 
+        // just get the pointer so we can index memory ourselves so hopefully gcc can put in some SIMD instrucitions
+        template <typename T>
+        const T* dataAs() const noexcept
+        {
+            return reinterpret_cast<const T*>(data.get());
+        }
+
+        template <typename T>
+        T* dataAs() noexcept
+        {
+            return reinterpret_cast<T*>(data.get());
+        }
+
         // Allocate data values
         inline void allocData()
         {
