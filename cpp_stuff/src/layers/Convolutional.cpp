@@ -147,10 +147,10 @@ namespace ML
         size_t j = 0, l = 0, i = 0, k = 0, d = 0, b = 0;
 
         // get our vector pointers
-        // const i8* input = dataIn.dataAs<i8>();
-        // const i8* weights = getWeightData().dataAs<i8>();
-        // const i32* bias = getBiasData().dataAs<i32>();
-        // i8* output = getOutputData().dataAs<i8>();
+        const i8* input = dataIn.dataAs<i8>();
+        const i8* weights = getWeightData().dataAs<i8>();
+        const i32* bias = getBiasData().dataAs<i32>();
+        i8* output = getOutputData().dataAs<i8>();
 
         // select scale
         float M, z_next;
@@ -183,17 +183,12 @@ namespace ML
                         for (d = 0; d < kernel_d; d++) {
                             
                             // shared between channels
-                            // i32 input_data = input[get_image_flat_idx(j + i, l + k, d, image_w, image_d)];
-                            // size_t weight_base_addr = get_kernel_flat_idx(i, k, d, 0, kernel_w, kernel_d, kernel_b);
-
-                            i32 input_data = dataIn.get<i8>(get_image_flat_idx(j + i, l + k, d, image_w, image_d));
+                            i32 input_data = input[get_image_flat_idx(j + i, l + k, d, image_w, image_d)];
                             size_t weight_base_addr = get_kernel_flat_idx(i, k, d, 0, kernel_w, kernel_d, kernel_b);
                             
                             // channel loop
-                            // #pragma omp simd
                             for (b = 0; b < kernel_b; b++) {
-                                // sum[b] += static_cast<i32>(weights[weight_base_addr + b]) * input_data;
-                                sum[b] += getWeightData().get<i8>(weight_base_addr + b) * input_data;
+                                sum[b] += static_cast<i32>(weights[weight_base_addr + b]) * input_data;
                             }
                         }
                     }
@@ -201,15 +196,13 @@ namespace ML
 
                 for (b = 0; b < kernel_b; b++) {
                     // add bias
-                    //i32 sum_plus_bias = sum[b] + bias[b];
-                    i32 sum_plus_bias = sum[b] + getBiasData().get<i32>(b);
+                    i32 sum_plus_bias = sum[b] + bias[b];
                     
                     fp32 out_val = std::round(sum_plus_bias * M) + z_next;   // requantize
                     out_val = std::clamp(out_val, z_next, max_value);       // RELU 
                 
                     // cast it to i8 and assign to output
-                    //output[get_out_flat_idx(j, l, b, out_w, kernel_b)] = static_cast<i8>(out_val);
-                    getOutputData().get<i8>(get_out_flat_idx(j, l, b, out_w, kernel_b)) = static_cast<i8>(out_val);             
+                    output[get_out_flat_idx(j, l, b, out_w, kernel_b)] = static_cast<i8>(out_val);
                     
                     sum[b] = 0;
                }
