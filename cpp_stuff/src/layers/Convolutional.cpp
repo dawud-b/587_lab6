@@ -26,26 +26,6 @@ namespace ML
         return out_w * out_d * height_idx + out_d * width_idx + batch_idx;
     }
 
-    inline size_t get_kernel_flat_idx_rm(size_t height_idx, size_t width_idx, size_t depth_idx, size_t batch_idx, size_t kernel_w, size_t kernel_d, size_t kernel_h){
-        //return kernel_w * kernel_d * kernel_b * height_idx + kernel_d * kernel_b * width_idx + kernel_b * depth_idx + batch_idx;
-        return (batch_idx * kernel_d * kernel_w * kernel_h + depth_idx * kernel_w * kernel_h + width_idx * kernel_h + height_idx);
-    }
-
-    inline size_t get_kernel_flat_idx_cm(size_t height_idx, size_t width_idx, size_t depth_idx, size_t batch_idx, size_t kernel_w, size_t kernel_d, size_t kernel_h){
-        //return kernel_w * kernel_d * kernel_b * height_idx + kernel_d * kernel_b * width_idx + kernel_b * depth_idx + batch_idx;
-        return (batch_idx * kernel_d * kernel_w * kernel_h + depth_idx * kernel_w * kernel_h + height_idx * kernel_w + width_idx);
-    }
-
-
-    inline size_t get_out_flat_idx_cm(size_t height_idx, size_t width_idx, size_t depth_idx, size_t out_w, size_t out_h){
-        return out_w * out_h * depth_idx + out_w * height_idx + width_idx;
-    }
-
-    inline size_t get_image_flat_idx_cm(size_t height_idx, size_t width_idx, size_t depth_idx, size_t img_w, size_t img_h){
-        //return kernel_w * kernel_d * kernel_b * height_idx + kernel_d * kernel_b * width_idx + kernel_b * depth_idx + batch_idx;
-        return (depth_idx * img_w * img_h + height_idx * img_w + width_idx);
-    }
-
     // Compute the convultion for the layer data
     // ME: the LayerData object passed has been loaded before (by img.loadData() no need to do it again)
     void ConvolutionalLayer::computeNaive(const LayerData &dataIn, const int layer_num) const
@@ -64,7 +44,6 @@ namespace ML
         //getOutputData().get<fp32>(0) = dataIn.get<fp32>(0);
 
         // {64, 64, 3}
-        size_t image_h = getInputParams().dims[0];
         size_t image_w = getInputParams().dims[1];
         size_t image_d = getInputParams().dims[2];
 
@@ -102,41 +81,7 @@ namespace ML
         }
 
         i32 sum;
-                 /*ROW MAJOR*/       
-//        for (b = 0; b < kernel_b; b++){
-//            for (j = 0; j < out_h; j++){
-//                for (l = 0; l < out_w; l++){
-//
-//                    sum = getBiasData().get<i32>(b);
-//
-//                    for (d = 0; d < kernel_d; d++){
-//                        for (i = 0; i < kernel_h; i++){
-//                            for (k = 0; k < kernel_w; k++){
-//                                sum += 
-//                                (
-//                                    getWeightData().get<i8>(get_kernel_flat_idx(i, k, d, b, kernel_w, kernel_d, kernel_b))
-//                                    *
-//                                    dataIn.get<i8>(get_image_flat_idx(j + i, l + k, d, image_w, image_d))
-//                                );
-//                            }
-//                        }
-//                    }
-//
-//                    //double out_val = std::round(sum * M) + z_next;   // requantize
-//                    //out_val = std::clamp(out_val, z_next, 127.0);                    // RELU 
-//                    
-//                    // cast it to i8 and assign to output
-//                    //getOutputData().get<i8>(get_out_flat_idx(j, l, b, out_w, kernel_b)) = static_cast<i8>(out_val);
-//
-//                    double out_val = sum / (SW_VALS[layer_num] * SI_VALS[layer_num]);
-//                    out_val = out_val > 0.0 ? out_val : 0;
-//                    getOutputData().get<fp32>(get_out_flat_idx(j, l, b, out_w, kernel_b)) = out_val;
-//               }
-//           }
-//        }
 
-
-                 /*column*/       
         for (b = 0; b < kernel_b; b++){
             for (j = 0; j < out_h; j++){
                 for (l = 0; l < out_w; l++){
@@ -146,47 +91,21 @@ namespace ML
                     for (d = 0; d < kernel_d; d++){
                         for (i = 0; i < kernel_h; i++){
                             for (k = 0; k < kernel_w; k++){
-                            //    sum += 
-                            //    (
-                            //        getWeightData().get<i8>(get_kernel_flat_idx_cm(i, k, d, b, kernel_w, kernel_d, kernel_h))
-                            //        *
-                            //        dataIn.get<i8>(get_image_flat_idx(j + i, l + k, d, image_w, image_d))
-                            //    );
-                            // WE ARE UNPACKING here.
-                                i8 weight = getWeightData().get<i8>(get_kernel_flat_idx_cm(i, k, d, b, kernel_w, kernel_d, kernel_h));
-
-                                i8 weight_low = static_cast<i8>((static_cast<ui8>(weight) & 0x0F) << 4) >> 4;
-                                i8 weight_high = static_cast<i8>((static_cast<ui8>(weight) & 0xF0)) >> 4;
-
-                                i8 activation_low = dataIn.get<i8>(get_image_flat_idx_cm(j + i, l + 2*k, d, image_w, image_h));
-                                i8 activation_high = dataIn.get<i8>(get_image_flat_idx_cm(j + i, l + 2*k + 1, d, image_w, image_h));
-//
-//                                i8 activation_low = dataIn.get<i8>(get_image_flat_idx(j + i, l + 2*k, d, image_w, image_d));
-//                                i8 activation_high = dataIn.get<i8>(get_image_flat_idx(j + i, l + 2*k + 1, d, image_w, image_d));
-                                
                                 sum += 
                                 (
-                                    weight_low * activation_low + weight_high * activation_high
+                                    getWeightData().get<i8>(get_kernel_flat_idx(i, k, d, b, kernel_w, kernel_d, kernel_b))
+                                    *
+                                    dataIn.get<i8>(get_image_flat_idx(j + i, l + k, d, image_w, image_d))
                                 );
                             }
                         }
                     }
-                    double out_val;
 
-                    if (layer_num == 100)
-                    {
-                        out_val = sum / (SW_VALS[layer_num] * SI_VALS[layer_num]);
-                        out_val = out_val > 0.0 ? out_val : 0;
-                        getOutputData().get<fp32>(get_out_flat_idx(j, l, b, out_w, kernel_b)) = out_val;
-                    }
-                    else
-                    {
-                        out_val = std::round(sum * M) + z_next;   // requantize
-                        out_val = std::clamp(out_val, z_next, static_cast<double>(max_value));                    // RELU 
-                        
-                        // cast it to i8 and assign to output
-                        getOutputData().get<i8>(get_out_flat_idx_cm(j, l, b, out_w, out_h)) = static_cast<i8>(out_val);
-                    }
+                    double out_val = std::round(sum * M) + z_next;   // requantize
+                    out_val = std::clamp(out_val, z_next, 127.0);                    // RELU 
+                    
+                    // cast it to i8 and assign to output
+                    getOutputData().get<i8>(get_out_flat_idx(j, l, b, out_w, kernel_b)) = static_cast<i8>(out_val);
                }
            }
         }
@@ -228,10 +147,10 @@ namespace ML
         size_t j = 0, l = 0, i = 0, k = 0, d = 0, b = 0;
 
         // get our vector pointers
-        const i8* input = dataIn.dataAs<i8>();
-        const i8* weights = getWeightData().dataAs<i8>();
-        const i32* bias = getBiasData().dataAs<i32>();
-        i8* output = getOutputData().dataAs<i8>();
+        // const i8* input = dataIn.dataAs<i8>();
+        // const i8* weights = getWeightData().dataAs<i8>();
+        // const i32* bias = getBiasData().dataAs<i32>();
+        // i8* output = getOutputData().dataAs<i8>();
 
         // select scale
         float M, z_next;
