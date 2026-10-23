@@ -30,10 +30,10 @@ const LayerData& Model::inferenceLayer(const LayerData& inData, const int layerN
         layer.computeNaive(inData, layerNum);
         break;
     case Layer::InfType::THREADED:
-        layer.computeThreaded(inData);
+        layer.computeThreaded(inData, layerNum);
         break;
     case Layer::InfType::TILED:
-        layer.computeTiled(inData);
+        layer.computeTiled(inData, layerNum);
         break;
     case Layer::InfType::SIMD:
         layer.computeSIMD(inData, layerNum);

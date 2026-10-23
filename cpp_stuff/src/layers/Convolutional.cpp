@@ -7,6 +7,7 @@
 #include "../Utils.h"
 #include "Layer.h"
 #include "./config.h"
+#include <omp.h>
 
 
 
@@ -111,24 +112,100 @@ namespace ML
         }
     }
 
-    // Compute the convolution using threads
-    void ConvolutionalLayer::computeThreaded(const LayerData &dataIn) const
+    // used for SIMD implementations
+    #define MAX_CHANNELS 128
+
+    // Compute the convolution using threads.
+    // Basically save same SIMD stuff just have the compiler infer for multi threads so that we have max threads running with SIMD
+    void ConvolutionalLayer::computeThreaded(const LayerData &dataIn, const int layer_num) const
     {
-        // TODO: Your Code Here...
+        // Optimized Convolution Loop to improve cache efficentcy
+        size_t image_w = getInputParams().dims[1];
+        size_t image_d = getInputParams().dims[2];
+
+        size_t out_h = getOutputParams().dims[0];
+        size_t out_w = getOutputParams().dims[1];
+
+        size_t kernel_h = getWeightParams().dims[0];
+        size_t kernel_w = getWeightParams().dims[1];
+        size_t kernel_d = getWeightParams().dims[2];
+        size_t kernel_b = getWeightParams().dims[3];
+
+    
+        size_t j = 0, l = 0, i = 0, k = 0, d = 0, b = 0;
+
+        // get our vector pointers
+        const i8* input = dataIn.dataAs<i8>();
+        const i8* weights = getWeightData().dataAs<i8>();
+        const i32* bias = getBiasData().dataAs<i32>();
+        i8* output = getOutputData().dataAs<i8>();
+
+        // select scale
+        float M, z_next;
+        
+        if (layer_num == 1 || layer_num == 4 || layer_num == 5)
+        {
+            M      = SI_VALS[layer_num + 2] / (SI_VALS[layer_num] * SW_VALS[layer_num]);
+            z_next = SZ_VALS[layer_num + 2];
+        }
+        else if (layer_num == 7)
+        {
+            M      = SI_VALS[layer_num + 3] / (SI_VALS[layer_num] * SW_VALS[layer_num]);
+            z_next = SZ_VALS[layer_num + 3];
+        }
+        else
+        {
+            M      = SI_VALS[layer_num + 1] / (SI_VALS[layer_num] * SW_VALS[layer_num]);
+            z_next = SZ_VALS[layer_num + 1];
+        }
+
+        #pragma omp parallel for num_threads(16)
+        // accumulate sum
+        for (j = 0; j < out_h; j++) {
+            for (l = 0; l < out_w; l++) {
+                
+                // one accumulate for each output chanel 
+                i32 sum[MAX_CHANNELS] = {};
+
+                for (i = 0; i < kernel_h; i++) {
+                    for (k = 0; k < kernel_w; k++) {
+                        for (d = 0; d < kernel_d; d++) {
+                            
+                            // shared between channels
+                            i32 input_data = input[get_image_flat_idx(j + i, l + k, d, image_w, image_d)];
+                            size_t weight_base_addr = get_kernel_flat_idx(i, k, d, 0, kernel_w, kernel_d, kernel_b);
+                            
+                            // channel loop
+                            for (b = 0; b < kernel_b; b++) {
+                                sum[b] += static_cast<i32>(weights[weight_base_addr + b]) * input_data;
+                            }
+                        }
+                    }
+                }
+
+                for (b = 0; b < kernel_b; b++) {
+                    // add bias
+                    i32 sum_plus_bias = sum[b] + bias[b];
+                    
+                    fp32 out_val = std::round(sum_plus_bias * M) + z_next;   // requantize
+                    out_val = std::clamp(out_val, z_next, max_value);       // RELU 
+                
+                    // cast it to i8 and assign to output
+                    output[get_out_flat_idx(j, l, b, out_w, kernel_b)] = static_cast<i8>(out_val);
+                    
+                    sum[b] = 0;
+               }
+           }
+        }
     }
 
     // Compute the convolution using a tiled approach
-    void ConvolutionalLayer::computeTiled(const LayerData &dataIn) const
+    void ConvolutionalLayer::computeTiled(const LayerData &dataIn, const int layer_num) const
     {
         // TODO: Your Code Here...
     }
 
-    #define MAX_CHANNELS 128
-    // Compute the convolution using SIMD
-    // Dawud's note: TODO: actually use SIMD insts or ensure compiler assumes SIMD.
-    //              reduces time greatly so seems to work for cache efficentcy tho
-    //              changes from each channel 1-by-1 to concurrently doing each channel. 
-    //              Could parallelize this to do multiple calculates at once on our hardware
+    // Confirmed SIMD insts with dump. Only works with unpacked int8,4,2
     void ConvolutionalLayer::computeSIMD(const LayerData &dataIn, const int layer_num) const
     {
         // Optimized Convolution Loop to improve cache efficentcy

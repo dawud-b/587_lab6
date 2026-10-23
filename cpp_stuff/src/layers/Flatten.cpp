@@ -20,12 +20,13 @@ namespace ML
         getOutputData() = dataIn;
     }
 
-    void FlattenLayer::computeThreaded(const LayerData &dataIn) const
+    void FlattenLayer::computeThreaded(const LayerData &dataIn, const int layer_num) const
     {
+        FlattenLayer::computeNaive(dataIn, layer_num);
         // TODO: Your Code Here...
     }
 
-    void FlattenLayer::computeTiled(const LayerData &dataIn) const
+    void FlattenLayer::computeTiled(const LayerData &dataIn, const int layer_num) const
     {
         // TODO: Your Code Here...
     }

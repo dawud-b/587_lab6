@@ -184,7 +184,7 @@ namespace ML
 
         // ------------- Run inference on the model --------------
         timer.start();
-        const LayerData &output = model.inference(quantized_image, Layer::InfType::SIMD);
+        const LayerData &output = model.inference(quantized_image, Layer::InfType::THREADED);
         timer.stop();
 
         // Compare the output

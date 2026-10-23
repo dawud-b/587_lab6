@@ -94,12 +94,13 @@ namespace ML
         }
     }
 
-    void DenseLayer::computeThreaded(const LayerData &dataIn) const
+    void DenseLayer::computeThreaded(const LayerData &dataIn, const int layer_num) const
     {
+        DenseLayer::computeNaive(dataIn, layer_num);
         // TODO: Your Code Here...
     }
 
-    void DenseLayer::computeTiled(const LayerData &dataIn) const
+    void DenseLayer::computeTiled(const LayerData &dataIn, const int layer_num) const
     {
         // TODO: Your Code Here...
     }

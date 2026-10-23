@@ -55,13 +55,15 @@ namespace ML
         
     }
 
-    void MaxPoolingLayer::computeThreaded(const LayerData &dataIn) const
+    void MaxPoolingLayer::computeThreaded(const LayerData &dataIn, const int layer_num) const
     {
+        MaxPoolingLayer::computeNaive(dataIn, layer_num);
         // TODO: Your Code Here...
     }
 
-    void MaxPoolingLayer::computeTiled(const LayerData &dataIn) const
+    void MaxPoolingLayer::computeTiled(const LayerData &dataIn, const int layer_num) const
     {
+        MaxPoolingLayer::computeNaive(dataIn, layer_num);
         // TODO: Your Code Here...
     }
 
